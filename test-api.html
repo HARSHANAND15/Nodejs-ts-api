@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auth API Tester</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    h2 {
+      color: #555;
+      margin-top: 0;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px 5px 5px 0;
+      font-size: 14px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .output {
+      background-color: #f0f0f0;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+    input {
+      padding: 8px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Auth API Tester</h1>
+    
+    <div class="section">
+      <h2>1. Register User</h2>
+      <input type="email" id="registerEmail" placeholder="Email" value="test@gmail.com">
+      <input type="password" id="registerPassword" placeholder="Password" value="123456">
+      <button onclick="testRegister()">Register</button>
+      <div id="registerOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+      <h2>2. Login User</h2>
+      <input type="email" id="loginEmail" placeholder="Email" value="test@gmail.com">
+      <input type="password" id="loginPassword" placeholder="Password" value="123456">
+      <button onclick="testLogin()">Login</button>
+      <div id="loginOutput" class="output"></div>
+    </div>
+
+    <div class="section">
+      <h2>3. Get Profile (Protected)</h2>
+      <input type="text" id="token" placeholder="Token (auto-populated from login)" readonly>
+      <button onclick="testProfile()">Get Profile</button>
+      <div id="profileOutput" class="output"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:5000/api/auth";
+    let authToken = localStorage.getItem("token") || "";
+    document.getElementById("token").value = authToken;
+
+    async function testRegister() {
+      const email = document.getElementById("registerEmail").value;
+      const password = document.getElementById("registerPassword").value;
+      const output = document.getElementById("registerOutput");
+
+      if (!email || !password) {
+        output.innerHTML = '<span class="error">❌ Email and password are required</span>';
+        return;
+      }
+
+      try {
+        output.innerHTML = "⏳ Registering...";
+        const response = await fetch(`${API_URL}/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          output.innerHTML = `<span class="success">✅ Registration successful!\n${JSON.stringify(data, null, 2)}</span>`;
+        } else {
+          output.innerHTML = `<span class="error">❌ ${data.message}</span>`;
+        }
+      } catch (error) {
+        output.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function testLogin() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      const output = document.getElementById("loginOutput");
+
+      if (!email || !password) {
+        output.innerHTML = '<span class="error">❌ Email and password are required</span>';
+        return;
+      }
+
+      try {
+        output.innerHTML = "⏳ Logging in...";
+        const response = await fetch(`${API_URL}/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          authToken = data.token;
+          localStorage.setItem("token", authToken);
+          document.getElementById("token").value = authToken;
+          output.innerHTML = `<span class="success">✅ Login successful!\nToken: ${authToken.substring(0, 50)}...</span>`;
+        } else {
+          output.innerHTML = `<span class="error">❌ ${data.message}</span>`;
+        }
+      } catch (error) {
+        output.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+      }
+    }
+
+    async function testProfile() {
+      const output = document.getElementById("profileOutput");
+      const token = document.getElementById("token").value || authToken;
+
+      if (!token) {
+        output.innerHTML = '<span class="error">❌ No token available. Please login first.</span>';
+        return;
+      }
+
+      try {
+        output.innerHTML = "⏳ Fetching profile...";
+        const response = await fetch(`${API_URL}/profile`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          output.innerHTML = `<span class="success">✅ Profile fetched!\n${JSON.stringify(data, null, 2)}</span>`;
+        } else {
+          output.innerHTML = `<span class="error">❌ ${data.message}</span>`;
+        }
+      } catch (error) {
+        output.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+      }
+    }
+
+    // Auto-load token if available
+    window.addEventListener('load', () => {
+      authToken = localStorage.getItem("token") || "";
+      document.getElementById("token").value = authToken;
+    });
+  </script>
+</body>
+</html>
